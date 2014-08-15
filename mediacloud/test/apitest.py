@@ -118,7 +118,7 @@ class ApiMediaSetTest(ApiBaseTest):
         media_set = self._mc.mediaSet(1)
         self.assertEqual(media_set['media_sets_id'],1)
         self.assertEqual(media_set['name'],'Top 25 Mainstream Media')
-        #self.assertTrue(len(media_set['media'])>0) # blocked by Media Cloud bug #7511 
+        self.assertTrue(len(media_set['media'])>0)
 
     def testMediaSetList(self):
         first_list = self._mc.mediaSetList()
@@ -189,6 +189,7 @@ class ApiSentencesTest(ApiBaseTest):
         last_date = None
         for sentence in results['response']['docs']:
             this_date = datetime.datetime.strptime(sentence['publish_date'],self._mc.SENTENCE_PUBLISH_DATE_FORMAT)
+            this_date = this_date.replace( second=0, microsecond=0) # sorting is by minute
             if last_date is not None:
                 self.assertTrue(last_date <= this_date, "Date wrong: "+str(last_date)+" is not <= "+str(this_date))
                 last_date = this_date
@@ -201,6 +202,7 @@ class ApiSentencesTest(ApiBaseTest):
         last_date = None
         for sentence in results['response']['docs']:
             this_date = datetime.datetime.strptime(sentence['publish_date'],self._mc.SENTENCE_PUBLISH_DATE_FORMAT)
+            this_date = this_date.replace( second=0, microsecond=0) # sorting is by minute
             if last_date is not None:
                 self.assertTrue(last_date >= this_date, "Date wrong: "+str(last_date)+" is not >= "+str(this_date))
                 last_date = this_date
@@ -221,18 +223,18 @@ class ApiSentencesTest(ApiBaseTest):
     def testSentenceList(self):
         results = self._mc.sentenceList(self.QUERY, self.FILTER_QUERY)
         self.assertEqual(int(results['responseHeader']['status']),0)
-        self.assertEqual(int(results['response']['numFound']),6738)
+        self.assertEqual(int(results['response']['numFound']),6739)
         self.assertEqual(len(results['response']['docs']), 1000)
 
     def testSentenceListPaging(self):
         # test limiting rows returned
         results = self._mc.sentenceList(self.QUERY, self.FILTER_QUERY,0,100)
-        self.assertEqual(int(results['response']['numFound']), 6738)
+        self.assertEqual(int(results['response']['numFound']), 6739)
         self.assertEqual(len(results['response']['docs']), 100)
         # test starting offset
         results = self._mc.sentenceList(self.QUERY, self.FILTER_QUERY,6700)
-        self.assertEqual(int(results['response']['numFound']), 6738)
-        self.assertEqual(len(results['response']['docs']), 38)
+        self.assertEqual(int(results['response']['numFound']), 6739)
+        self.assertEqual(len(results['response']['docs']), 39)
 
     def testSentenceCount(self):
         # basic counting
