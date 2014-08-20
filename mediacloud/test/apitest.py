@@ -69,32 +69,37 @@ class ApiMediaTest(ApiBaseTest):
 class ApiTagsTest(ApiBaseTest):
 
     def testTags(self):
-        tag = self._mc.tag(8876989)
-        self.assertEqual(tag['tags_id'],8876989)
-        self.assertEqual(tag['tag'],'JP')
-        self.assertEqual(tag['tag_sets_id'],597)
+        tags_id = 1 # 'collection:news collection:cc'
+        tag_sets_id = 1
+        tag = self._mc.tag(tags_id)
+        self.assertEqual(tag['tags_id'], tags_id)
+        self.assertEqual(tag['tag'], u'news collection:cc')
+        self.assertEqual(tag['tag_sets_id'], tag_sets_id )
 
     def testTagList(self):
+        tag_sets_id = 1 # | collection
+
         # verify it only pulls tags from that one set
-        first_list = self._mc.tagList(597)
-        self.assertEqual(len(first_list),20)
-        [self.assertEqual(tag['tag_sets_id'],597) for tag in first_list]
+        first_list = self._mc.tagList(tag_sets_id)
+        self.assertEqual(len(first_list),3)
+        [self.assertEqual(tag['tag_sets_id'],tag_sets_id) for tag in first_list]
         # make sure paging through a set works right
-        second_list = self._mc.tagList(597, int(first_list[19]['tags_id'])-1)
-        self.assertEqual(len(second_list),20)
-        [self.assertEqual(tag['tag_sets_id'],597) for tag in second_list]
-        self.assertEqual(first_list[19]['tags_id'], second_list[0]['tags_id'])
+        second_list = self._mc.tagList(tag_sets_id, int(first_list[1]['tags_id'])-1)
+        self.assertEqual(len(second_list),2)
+        [self.assertEqual(tag['tag_sets_id'],tag_sets_id) for tag in second_list]
+        self.assertEqual(first_list[1]['tags_id'], second_list[0]['tags_id'])
         # make sure you can pull a longer list of tags
-        longer_list = self._mc.tagList(597, 0, 150)
-        self.assertEqual(len(longer_list),150)
-        [self.assertEqual(tag['tag_sets_id'],597) for tag in longer_list]
-        longest_list = self._mc.tagList(597, 0, 200)
-        self.assertEqual(len(longest_list),173)
-        [self.assertEqual(tag['tag_sets_id'],597) for tag in longest_list]
+        longer_list = self._mc.tagList(tag_sets_id, 0, 150)
+        self.assertEqual(len(longer_list),3)
+        [self.assertEqual(tag['tag_sets_id'],tag_sets_id) for tag in longer_list]
+        longest_list = self._mc.tagList(tag_sets_id, 0, 3)
+        self.assertEqual(len(longest_list),3)
+        [self.assertEqual(tag['tag_sets_id'],tag_sets_id) for tag in longest_list]
         # try getting only the public tags in the set
-        full_list = self._mc.tagList(6, rows=200)
-        public_list = self._mc.tagList(6, rows=200, public_only=True)
-        self.assertNotEqual( len(full_list), len(public_list))
+        # TODO enable
+        #full_list = self._mc.tagList(6, rows=200)
+        #public_list = self._mc.tagList(6, rows=200, public_only=True)
+        #self.assertNotEqual( len(full_list), len(public_list))
 
 class ApiTagSetsTest(ApiBaseTest):
 
