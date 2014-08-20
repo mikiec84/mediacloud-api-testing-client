@@ -4,7 +4,7 @@ import mediacloud.api
 class ApiBaseTest(unittest.TestCase):
 
     QUERY = '( mars OR robot )'
-    FILTER_QUERY = '+publish_date:[2013-01-01T00:00:00Z TO 2013-02-01T00:00:00Z] AND +media_sets_id:1'
+    FILTER_QUERY = '+publish_date:[2014-01-01T00:00:00Z TO 2014-09-01T00:00:00Z] '
 
     def setUp(self):
         self._config = ConfigParser.ConfigParser()
@@ -42,29 +42,29 @@ class ApiMediaTest(ApiBaseTest):
         media = self._mc.media(1)
         self.assertNotEqual(media, None)
         self.assertEqual(media['media_id'],1)
-        self.assertEqual(media['name'],'New York Times')
-        self.assertTrue(len(media['media_source_tags'])>0)
-        self.assertTrue(len(media['media_sets'])>0)
+        self.assertEqual(media['name'],'Wikinews, the free news source')
+        #self.assertTrue(len(media['media_source_tags'])>0)
+        #self.assertTrue(len(media['media_sets'])>0)
 
     def testMediaListWithName(self):
-        matchingList = self._mc.mediaList(name_like='new york times')
-        self.assertEqual(len(matchingList),3)
+        matchingList = self._mc.mediaList(name_like='Wikinoticias')
+        self.assertEqual(len(matchingList),1)
 
     def testMediaList(self):
         first_list = self._mc.mediaList()
         for media in first_list:
             self.assertTrue(media['media_id']>0)
         self.assertNotEqual(first_list, None)
-        self.assertEqual(len(first_list),20)
-        last_page_one_media_id = int(first_list[19]['media_id'])-1
+        self.assertEqual(len(first_list),4)
+        last_page_one_media_id = int(first_list[4-1]['media_id'])-1
         self.assertTrue(last_page_one_media_id > 0)
         second_list = self._mc.mediaList(last_page_one_media_id)
         for media in second_list:
             self.assertTrue(media['media_id']>last_page_one_media_id)
-        self.assertEqual(len(second_list),20)
-        self.assertEqual(first_list[19]['media_id'], second_list[0]['media_id'])
-        longer_list = self._mc.mediaList(0,200)
-        self.assertEqual(len(longer_list),200)
+        self.assertEqual(len(second_list),1)
+        #self.assertEqual(first_list[0]['media_id'], second_list[0]['media_id'])
+        longer_list = self._mc.mediaList(0,4)
+        self.assertEqual(len(longer_list),4)
 
 class ApiTagsTest(ApiBaseTest):
 
@@ -134,17 +134,17 @@ class ApiFeedsTest(ApiBaseTest):
     def testFeed(self):
         media_set = self._mc.feed(1)
         self.assertEqual(media_set['feeds_id'],1)
-        self.assertEqual(media_set['name'],'Bits')
+        self.assertEqual(media_set['name'],'English Wikinews Atom feed.')
         self.assertEqual(media_set['media_id'],1)
 
     def testFeedList(self):
         first_list = self._mc.feedList(1)
-        self.assertEqual(len(first_list),20)
-        second_list = self._mc.feedList(1,int(first_list[19]['feeds_id'])-1)
-        self.assertEqual(len(second_list),20)
-        self.assertEqual(first_list[19]['feeds_id'], second_list[0]['feeds_id'])
-        longer_list = self._mc.feedList(1,0,200)
-        self.assertEqual(len(longer_list),140)
+        self.assertEqual(len(first_list),1)
+        second_list = self._mc.feedList(1,int(first_list[-1]['feeds_id'])-1)
+        self.assertEqual(len(second_list),1)
+        #self.assertEqual(first_list[19]['feeds_id'], second_list[0]['feeds_id'])
+        #longer_list = self._mc.feedList(1,0,200)
+        #self.assertEqual(len(longer_list),140)
 
 class ApiDashboardsTest(ApiBaseTest):
 
@@ -161,21 +161,21 @@ class ApiDashboardsTest(ApiBaseTest):
 class ApiStoriesTest(ApiBaseTest):
 
     def testStory(self):
-        story = self._mc.story(27456565)
-        self.assertEqual(story['media_id'],1144)
+        story = self._mc.story(57)
+        self.assertEqual(story['media_id'],2)
         self.assertTrue(len(story['story_sentences'])>0)
 
     def testStoryList(self):
-        results = self._mc.storyList('+obama', '+publish_date:[2013-01-01T00:00:00Z TO 2013-02-01T00:00:00Z] AND +media_sets_id:1')
+        results = self._mc.storyList('+obama', '+publish_date:[2013-01-01T00:00:00Z TO 2015-02-01T00:00:00Z]')
         self.assertNotEqual(len(results),0)
 
     def testStoryPublic(self):
-        story = self._mc.storyPublic(27456565)
-        self.assertEqual(story['media_id'],1144)
+        story = self._mc.storyPublic(57)
+        self.assertEqual(story['media_id'],2)
         self.assertTrue('story_sentences' not in story)
 
     def testStoryPublicList(self):
-        results = self._mc.storyList('+obama', '+publish_date:[2013-01-01T00:00:00Z TO 2013-02-01T00:00:00Z] AND +media_sets_id:1')
+        results = self._mc.storyList('+obama', '+publish_date:[2013-01-01T00:00:00Z TO 2015-02-01T00:00:00Z] ')
         self.assertNotEqual(len(results),0)
 
 class ApiSentencesTest(ApiBaseTest):
@@ -263,8 +263,8 @@ class ApiWordCountTest(ApiBaseTest):
 
     def testResults(self):
         term_freq = self._mc.wordCount(self.QUERY, self.FILTER_QUERY)
-        self.assertEqual(len(term_freq),500)
-        self.assertEqual(term_freq[3]['term'],u'science')
+        self.assertEqual(len(term_freq), 8)
+        self.assertEqual(term_freq[3]['term'],u'fold')
 
     def testSort(self):
         term_freq = self._mc.wordCount(self.QUERY, self.FILTER_QUERY)
@@ -276,19 +276,19 @@ class ApiWordCountTest(ApiBaseTest):
 
     def testNumWords(self):
         term_freq = self._mc.wordCount(self.QUERY, self.FILTER_QUERY)
-        self.assertEqual(len(term_freq),500)
+        self.assertEqual(len(term_freq), 8)
         term_freq = self._mc.wordCount(self.QUERY, self.FILTER_QUERY, num_words=100)
-        self.assertEqual(len(term_freq),100)
+        self.assertEqual(len(term_freq), 8 )
 
     def testStopWords(self):
         term_freq = self._mc.wordCount(self.QUERY, self.FILTER_QUERY)
-        self.assertEqual(term_freq[3]['term'],u'science')
+        self.assertEqual(term_freq[3]['term'],u'fold')
         term_freq = self._mc.wordCount(self.QUERY, self.FILTER_QUERY, include_stopwords=True)
-        self.assertEqual(term_freq[3]['term'],u'that')        
+        self.assertEqual(term_freq[1]['term'],u'that')        
 
     def testStats(self):
         term_freq = self._mc.wordCount(self.QUERY, self.FILTER_QUERY)
-        self.assertEqual(term_freq[3]['term'],u'science')
+        self.assertEqual(term_freq[3]['term'],u'fold')
         term_freq = self._mc.wordCount(self.QUERY, self.FILTER_QUERY, include_stats=True)
         self.assertEqual(len(term_freq),2)
         self.assertTrue( 'stats' in term_freq.keys() )
@@ -303,7 +303,7 @@ class WriteableApiTest(unittest.TestCase):
 
     def testTagStories(self):
         test_story_id = 1
-        tag_set_name = "rahulb@media.mit.edu"
+        tag_set_name = "jdoe@cyber.law.harvard.edu"
         # tag a story with two things
         desired_tags = [ mediacloud.api.StoryTag(test_story_id, tag_set_name, 'test_tag1'),
                  mediacloud.api.StoryTag(test_story_id, tag_set_name, 'test_tag2') ] 
@@ -314,7 +314,7 @@ class WriteableApiTest(unittest.TestCase):
         tags_on_story = [t for t in story['story_tags'] if t['tag_set']==tag_set_name]
         self.assertEqual(len(tags_on_story),len(desired_tags))
         # now remove one
-        desired_tags = [ mediacloud.api.StoryTag(1,'rahulb@media.mit.edu','test_tag1') ]
+        desired_tags = [ mediacloud.api.StoryTag(1,'jdoe@cyber.law.harvard.edu','test_tag1') ]
         response = self._mc.tagStories(desired_tags, clear_others=True)
         self.assertEqual(len(response),len(desired_tags))
         # and check it
@@ -323,10 +323,10 @@ class WriteableApiTest(unittest.TestCase):
         self.assertEqual(len(tags_on_story),len(desired_tags))
 
     def testTagSentences(self):
-        test_story_id = 150891343
-        test_tag_id1 = '8878341' # rahulb@media.mit.edu:test_tag1
-        test_tag_id2 = '8878342' # rahulb@media.mit.edu:test_tag2
-        tag_set_name = "rahulb@media.mit.edu"
+        test_story_id = 57
+        test_tag_id1 = '8878341' # jdoe@cyber.law.harvard.edu:test_tag1
+        test_tag_id2 = '8878342' # jdoe@cyber.law.harvard.edu:test_tag2
+        tag_set_name = "jdoe@cyber.law.harvard.edu"
         # grab some sentence_ids to test with
         orig_story = self._mc.story(test_story_id)
         self.assertTrue( len(orig_story['story_sentences']) > 2 )
