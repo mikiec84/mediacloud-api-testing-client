@@ -302,7 +302,7 @@ class WriteableApiTest(unittest.TestCase):
         self._mc = mediacloud.api.WriteableMediaCloud( self._config.get('api','key') )
 
     def testTagStories(self):
-        test_story_id = 1
+        test_story_id = 57
         tag_set_name = "jdoe@cyber.law.harvard.edu"
         # tag a story with two things
         desired_tags = [ mediacloud.api.StoryTag(test_story_id, tag_set_name, 'test_tag1'),
@@ -314,7 +314,7 @@ class WriteableApiTest(unittest.TestCase):
         tags_on_story = [t for t in story['story_tags'] if t['tag_set']==tag_set_name]
         self.assertEqual(len(tags_on_story),len(desired_tags))
         # now remove one
-        desired_tags = [ mediacloud.api.StoryTag(1,'jdoe@cyber.law.harvard.edu','test_tag1') ]
+        desired_tags = [ mediacloud.api.StoryTag( test_story_id,'jdoe@cyber.law.harvard.edu','test_tag1') ]
         response = self._mc.tagStories(desired_tags, clear_others=True)
         self.assertEqual(len(response),len(desired_tags))
         # and check it
@@ -324,8 +324,8 @@ class WriteableApiTest(unittest.TestCase):
 
     def testTagSentences(self):
         test_story_id = 57
-        test_tag_id1 = '8878341' # jdoe@cyber.law.harvard.edu:test_tag1
-        test_tag_id2 = '8878342' # jdoe@cyber.law.harvard.edu:test_tag2
+        test_tag_id1 = '16' # jdoe@cyber.law.harvard.edu:test_tag1
+        test_tag_id2 = '17' # jdoe@cyber.law.harvard.edu:test_tag2
         tag_set_name = "jdoe@cyber.law.harvard.edu"
         # grab some sentence_ids to test with
         orig_story = self._mc.story(test_story_id)
@@ -339,6 +339,7 @@ class WriteableApiTest(unittest.TestCase):
         # and verify it worked
         tagged_story = self._mc.story(test_story_id)
         tagged_sentences = [ s for s in orig_story['story_sentences'] if len(s['tags']) > 0 ]
+
         for s in tagged_sentences:
             if s['story_sentences_id'] in sentence_ids:
                 self.assertTrue(test_tag_id1 in s['tags'])
