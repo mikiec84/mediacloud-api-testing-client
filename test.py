@@ -5,10 +5,19 @@ import unittest, logging
 from mediacloud.test.apitest import *
 from mediacloud.test.storagetest import *
 
+import ipdb
+
 test_classes = [
-	ApiMediaTest, ApiMediaSetTest, ApiFeedsTest, ApiDashboardsTest, ApiTagsTest, ApiTagSetsTest, 
-	ApiStoriesTest, ApiWordCountTest, ApiSentencesTest,
-	MongoStorageTest,
+	ApiMediaTest,
+#ApiMediaSetTest, 
+ApiFeedsTest, 
+#ApiDashboardsTest, 
+ApiTagsTest, 
+#ApiTagSetsTest, 
+ApiStoriesTest,
+# ApiWordCountTest,
+ ApiSentencesTest,
+#	MongoStorageTest,
 	AuthTokenTest,
 	WriteableApiTest
 ]
@@ -32,6 +41,14 @@ suites = [ unittest.TestLoader().loadTestsFromTestCase(test_class) for test_clas
 
 if __name__ == "__main__":
 	suite = unittest.TestSuite(suites)
-	unittest.TextTestRunner(verbosity=2).run(suite)	
+	result = unittest.TextTestRunner(verbosity=2).run(suite)
+
+	print result
+	print 'python result', result.wasSuccessful()
+
+	if result.wasSuccessful() == True:
+           exit(0)
+        else:
+           exit(-1)
 
 # SUITE THESE ALL UP for better outputs
