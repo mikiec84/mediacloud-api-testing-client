@@ -9,7 +9,7 @@ import ipdb
 
 test_classes = [
 	ApiMediaTest,
-#ApiMediaSetTest, 
+ApiMediaSetTest, 
 ApiFeedsTest, 
 #ApiDashboardsTest, 
 ApiTagsTest, 
