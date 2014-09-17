@@ -69,11 +69,11 @@ class ApiMediaTest(ApiBaseTest):
 class ApiTagsTest(ApiBaseTest):
 
     def testTags(self):
-        tags_id = 1 # 'collection:news collection:cc'
+        tags_id = 17 # 'collection:cc'
         tag_sets_id = 1
         tag = self._mc.tag(tags_id)
         self.assertEqual(tag['tags_id'], tags_id)
-        self.assertEqual(tag['tag'], u'news collection:cc')
+        self.assertEqual(tag['tag'], u'cc')
         self.assertEqual(tag['tag_sets_id'], tag_sets_id )
 
     def testTagList(self):
@@ -81,16 +81,16 @@ class ApiTagsTest(ApiBaseTest):
 
         # verify it only pulls tags from that one set
         first_list = self._mc.tagList(tag_sets_id)
-        self.assertEqual(len(first_list),3)
+        self.assertEqual(len(first_list),4)
         [self.assertEqual(tag['tag_sets_id'],tag_sets_id) for tag in first_list]
         # make sure paging through a set works right
         second_list = self._mc.tagList(tag_sets_id, int(first_list[1]['tags_id'])-1)
-        self.assertEqual(len(second_list),2)
+        self.assertEqual(len(second_list),3)
         [self.assertEqual(tag['tag_sets_id'],tag_sets_id) for tag in second_list]
         self.assertEqual(first_list[1]['tags_id'], second_list[0]['tags_id'])
         # make sure you can pull a longer list of tags
         longer_list = self._mc.tagList(tag_sets_id, 0, 150)
-        self.assertEqual(len(longer_list),3)
+        self.assertEqual(len(longer_list),4)
         [self.assertEqual(tag['tag_sets_id'],tag_sets_id) for tag in longer_list]
         longest_list = self._mc.tagList(tag_sets_id, 0, 3)
         self.assertEqual(len(longest_list),3)
@@ -331,8 +331,8 @@ class WriteableApiTest(unittest.TestCase):
 
     def testTagSentences(self):
         test_story_id = 57
-        test_tag_id1 = '16' # jdoe@cyber.law.harvard.edu:test_tag1
-        test_tag_id2 = '17' # jdoe@cyber.law.harvard.edu:test_tag2
+        test_tag_id1 = '20' # jdoe@cyber.law.harvard.edu:test_tag1
+        test_tag_id2 = '21' # jdoe@cyber.law.harvard.edu:test_tag2
         tag_set_name = "jdoe@cyber.law.harvard.edu"
         # grab some sentence_ids to test with
         orig_story = self._mc.story(test_story_id)
