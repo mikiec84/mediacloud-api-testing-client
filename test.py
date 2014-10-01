@@ -16,7 +16,7 @@ ApiTagsTest,
 #ApiTagSetsTest, 
 ApiStoriesTest,
 # ApiWordCountTest,
- ApiSentencesTest,
+# ApiSentencesTest,
 #	MongoStorageTest,
 	AuthTokenTest,
 	WriteableApiTest
