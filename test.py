@@ -18,9 +18,9 @@ test_classes = [
 	# ApiWordCountTest,
 	# ApiSentencesTest,
 	# MongoStorageTest,
-	ApiControversyTest,
-	ApiControversyDumpTest,
-	ApiControversyDumpTimeSliceTest,
+	# ApiControversyTest,
+	# ApiControversyDumpTest,
+	# ApiControversyDumpTimeSliceTest,
 	AuthTokenTest,
 	WriteableApiTest
 ]
