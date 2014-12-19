@@ -3,8 +3,8 @@ import mediacloud.api
 
 class ApiBaseTest(unittest.TestCase):
 
-    QUERY = '( mars OR robot )'
-    FILTER_QUERY = '+publish_date:[2014-01-01T00:00:00Z TO 2014-09-01T00:00:00Z] '
+    QUERY = '+obama'
+    FILTER_QUERY = '+publish_date:[2013-01-01T00:00:00Z TO 2015-02-01T00:00:00Z]'
 
     def setUp(self):
         self._config = ConfigParser.ConfigParser()
@@ -65,6 +65,61 @@ class ApiMediaTest(ApiBaseTest):
         #self.assertEqual(first_list[0]['media_id'], second_list[0]['media_id'])
         longer_list = self._mc.mediaList(0,4)
         self.assertEqual(len(longer_list),4)
+
+class ApiControversyTest(ApiBaseTest):
+
+    def testControversy(self):
+        controversy = self._mc.controversy(1)
+        self.assertEqual(controversy['controversies_id'],1)
+        self.assertEqual(controversy['name'],'trayvon')
+
+    def testControversyList(self):
+        # verify it pulls some
+        controversy_list = self._mc.controversyList()
+        self.assertTrue(len(controversy_list)>1)
+        # make sure the filtering works
+        pop_controversy_list = self._mc.controversyList('prop')
+        self.assertTrue(len(pop_controversy_list)>1)
+        self.assertTrue(len(pop_controversy_list)<len(controversy_list))
+        # make sure a failure case works
+        random_controversy_list = self._mc.controversyList('12335')
+        self.assertEqual(len(random_controversy_list),0)
+
+class ApiControversyDumpTest(ApiBaseTest):
+
+    def testControversyDump(self):
+        controversy_dump = self._mc.controversyDump(557)
+        self.assertEqual(controversy_dump['controversy_dumps_id'],557)
+        self.assertEqual(controversy_dump['controversies_id'],1)
+
+    def testControversyDumpList(self):
+        # verify it pulls some
+        controversy_dump_list = self._mc.controversyDumpList()
+        self.assertTrue(len(controversy_dump_list)>1)
+        # make sure the filtering works
+        specific_controversy_dump_list = self._mc.controversyDumpList(1)
+        self.assertTrue(len(specific_controversy_dump_list)>1)
+        self.assertTrue(len(specific_controversy_dump_list)<len(controversy_dump_list))
+        # make sure a failure case works
+        random_controversy_dump_list = self._mc.controversyDumpList('12335')
+        self.assertEqual(len(random_controversy_dump_list),0)
+
+class ApiControversyDumpTimeSliceTest(ApiBaseTest):
+
+    def testControversyDumpTimeSlice(self):
+        dump_time_slice = self._mc.controversyDumpTimeSlice(145)
+        self.assertEqual(dump_time_slice['controversy_dump_time_slices_id'],145)
+        self.assertEqual(dump_time_slice['controversy_dumps_id'],16)
+        self.assertEqual(dump_time_slice['model_num_media'],4)
+
+    def testControversyDumpTimeSliceList(self):
+        # verify it pulls some
+        dump_time_slice_list = self._mc.controversyDumpTimeSliceList()
+        self.assertTrue(len(dump_time_slice_list)>1)
+        # make sure the filtering works
+        specific_dump_time_slice_list = self._mc.controversyDumpTimeSliceList(controversy_dumps_id=5)
+        self.assertTrue(len(specific_dump_time_slice_list)>1)
+        self.assertTrue(len(specific_dump_time_slice_list)<=len(dump_time_slice_list))
 
 class ApiTagsTest(ApiBaseTest):
 
@@ -168,10 +223,10 @@ class ApiStoriesTest(ApiBaseTest):
     def testStory(self):
         story = self._mc.story(57)
         self.assertEqual(story['media_id'],2)
-        self.assertTrue(len(story['story_sentences'])>0)
+        self.assertFalse('story_sentences' in story)
 
     def testStoryList(self):
-        results = self._mc.storyList('+obama', '+publish_date:[2013-01-01T00:00:00Z TO 2015-02-01T00:00:00Z]')
+        results = self._mc.storyList(self.QUERY, self.FILTER_QUERY)
         self.assertNotEqual(len(results),0)
 
     def testStoryPublic(self):
@@ -180,8 +235,52 @@ class ApiStoriesTest(ApiBaseTest):
         self.assertTrue('story_sentences' not in story)
 
     def testStoryPublicList(self):
-        results = self._mc.storyList('+obama', '+publish_date:[2013-01-01T00:00:00Z TO 2015-02-01T00:00:00Z] ')
+        results = self._mc.storyList(self.QUERY, self.FILTER_QUERY)
         self.assertNotEqual(len(results),0)
+
+    def testStoryCoreNlpList(self):
+        results = self._mc.storyCoreNlpList([261784668,261784669])
+        self.assertEqual(len(results),2)
+        for story in results:
+            self.assertFalse('story_sentences' in story)
+            self.assertFalse('story_text' in story)
+            self.assertFalse('fully_extracted' in story)
+            self.assertTrue('corenlp' in story)
+            self.assertTrue('stories_id' in story)
+
+'''
+    def testStoryListDefaults(self):
+        results = self._mc.storyList(self.QUERY, self.FILTER_QUERY)
+        for story in results:
+            self.assertTrue('story_sentences' in story)
+            self.assertTrue('story_text' in story)
+            self.assertTrue('fully_extracted' in story)
+            self.assertFalse('corenlp' in story)
+
+    def testStoryListWithCoreNlp(self):
+        results = self._mc.storyList(self.QUERY, self.FILTER_QUERY, corenlp=True)
+        for story in results:
+            self.assertFalse('story_sentences' in story)
+            self.assertTrue('story_text' in story)
+            self.assertTrue('fully_extracted' in story)
+            self.assertFalse('corenlp' in story)
+
+    def testStoryListWithoutSentences(self):
+        results = self._mc.storyList(self.QUERY, self.FILTER_QUERY, show_sentences=False)
+        for story in results:
+            self.assertFalse('story_sentences' in story)
+            self.assertTrue('story_text' in story)
+            self.assertTrue('fully_extracted' in story)
+            self.assertFalse('corenlp' in story)
+
+    def testStoryListWithoutText(self):
+        results = self._mc.storyList(self.QUERY, self.FILTER_QUERY, show_text=False)
+        for story in results:
+            self.assertTrue('story_sentences' in story)
+            self.assertFalse('story_text' in story)
+            self.assertFalse('fully_extracted' in story)
+            self.assertFalse('corenlp' in story)
+'''
 
 class ApiSentencesTest(ApiBaseTest):
 
@@ -245,7 +344,6 @@ class ApiSentencesTest(ApiBaseTest):
     def testSentenceCount(self):
         # basic counting
         results = self._mc.sentenceCount('chinese','+media_id:1')
-        print results['count']
         self.assertTrue(int(results['count'])> 7)
         # counting with a default split weekly
         results = self._mc.sentenceCount('chinese','+media_id:1',True,'2014-01-01','2014-03-01')

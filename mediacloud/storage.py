@@ -34,7 +34,7 @@ class StoryDatabase(object):
         if not self.storyExists(stories_id):
             # if the story is new, save it all
             story_attributes = {
-                'stories_id': long(stories_id),
+                'stories_id': stories_id,
                 'media_id': story_sentences[0]['media_id'],
                 'publish_date': story_sentences[0]['publish_date'],
                 'language': story_sentences[0]['language'],
@@ -47,7 +47,7 @@ class StoryDatabase(object):
             story = self.getStory(stories_id)
             all_sentences = dict(story['story_sentences'].items() + sentences_by_number.items())
             story_attributes = {
-                'stories_id': long(stories_id),
+                'stories_id': stories_id,
                 'story_sentences': all_sentences,
                 'story_sentences_count': len(all_sentences)
             }
@@ -62,14 +62,14 @@ class StoryDatabase(object):
             from pubsub import pub
             story_to_save = copy.deepcopy( story )
             story_to_save = dict(story_to_save.items() + extra_attributes.items())
-            story_to_save['stories_id'] = long(story['stories_id'])
+            story_to_save['stories_id'] = story['stories_id']
             if 'story_sentences' in story:
                 story_to_save['story_sentences_count'] = len(story['story_sentences'])
             pub.sendMessage(self.EVENT_PRE_STORY_SAVE, db_story=story_to_save, raw_story=story)
             self._updateStory(story_to_save)
-            saved_story = self.getStory( long(story['stories_id']) )
+            saved_story = self.getStory( story['stories_id'] )
             pub.sendMessage(self.EVENT_POST_STORY_SAVE, db_story=saved_story, raw_story=story)
-            self._logger.info('Updated '+str(story['stories_id']))
+            self._logger.debug('Updated '+str(story['stories_id']))
 
     def addStory(self, story, extra_attributes={}):
         ''' 
@@ -78,18 +78,18 @@ class StoryDatabase(object):
         '''
         from pubsub import pub
         if self.storyExists(story['stories_id']):
-            self._logger.info('Not saving '+str(story['stories_id'])+' - already exists')
+            self._logger.warn('Not saving '+str(story['stories_id'])+' - already exists')
             return False
         story_to_save = copy.deepcopy( story )
         story_to_save = dict(story_to_save.items() + extra_attributes.items())
-        story_to_save['_stories_id'] = long(story['stories_id'])
+        story_to_save['_stories_id'] = story['stories_id']
         if 'story_sentences' in story:
             story_to_save['story_sentences_count'] = len(story['story_sentences'])
         pub.sendMessage(self.EVENT_PRE_STORY_SAVE, db_story=story_to_save, raw_story=story)
         self._saveStory( story_to_save )
         saved_story = self.getStory( story['stories_id'] )
         pub.sendMessage(self.EVENT_POST_STORY_SAVE, db_story=saved_story, raw_story=story)
-        self._logger.info('Saved '+str(story['stories_id']))
+        self._logger.debug('Saved '+str(story['stories_id']))
         return True
 
     def _updateStory(self, story_attributes):
@@ -154,7 +154,7 @@ class MongoStoryDatabase(StoryDatabase):
         return story
 
     def getStory(self, story_id):
-        stories = self._db.stories.find( { "stories_id": long(story_id) } ).limit(1)
+        stories = self._db.stories.find( { "stories_id": story_id } ).limit(1)
         if stories.count()==0:
             return None
         return stories.next()

@@ -1,7 +1,7 @@
 import re, logging, json, urllib, datetime, sys
 from collections import namedtuple
 import xml.etree.ElementTree, requests
-import mediacloud
+import mediacloud, mediacloud.error
 
 class MediaCloud(object):
     '''
@@ -13,6 +13,8 @@ class MediaCloud(object):
     SORT_PUBLISH_DATE_ASC = "publish_date_asc"
     SORT_PUBLISH_DATE_DESC = "publish_date_desc"
     SORT_RANDOM = "random"
+
+    MSG_CORE_NLP_NOT_ANNOTATED = "story is not annotated"
 
     SENTENCE_PUBLISH_DATE_FORMAT = "%Y-%m-%d %H:%M:%S" # use with datetime.datetime.strptime
 
@@ -40,6 +42,16 @@ class MediaCloud(object):
         else:
             self._logger.warn("AuthToken request for "+username+" failed!")
             raise Exception(response['result'])
+
+    def verifyAuthToken(self):
+        try:
+            self.tagSetList(0, 1)
+            return True
+        except mediacloud.error.MCException:
+            return False
+        except Exception as exception:
+            self._logger.warn("AuthToken verify failed: %s" % exception)
+        return False
 
     def media(self, media_id):
         '''
@@ -121,7 +133,8 @@ class MediaCloud(object):
         return self._queryForJson(self.V2_API_URL+'stories/single/'+str(stories_id),
                 {'raw_1st_download': 1 if raw_1st_download else 0, 'corenlp': 1 if corenlp else 0} )[0]
 
-    def storyList(self, solr_query='', solr_filter='', last_processed_stories_id=0, rows=20, raw_1st_download=False, corenlp=False):
+    def storyList(self, solr_query='', solr_filter='', last_processed_stories_id=0, rows=20, 
+                  raw_1st_download=False, corenlp=False, show_sentences=True, show_text=True):
         '''
         Search for stories and page through results
         '''
@@ -131,8 +144,21 @@ class MediaCloud(object):
                  'last_processed_stories_id': last_processed_stories_id,
                  'rows': rows,
                  'raw_1st_download': 1 if raw_1st_download else 0, 
-                 'corenlp': 1 if corenlp else 0
+                 'corenlp': 1 if corenlp else 0,    # this is slow - use storyCoreNlList instead
+                 'sentences': 1 if show_sentences else 0,
+                 'text': 1 if show_text else 0
                 }) 
+
+    def storyCoreNlpList(self, story_id_list):
+        '''
+        The stories/corenlp call takes as many stories_id= parameters as you want to pass it, 
+        and it returns the corenlp for each.  
+        { stories_id => 1, corenlp => { <corenlp data> } }
+        If no corenlp annotation is available for a given story, the json element for that story looks like:
+        { stories_id => 1, corenlp => 'story is not annotated' }
+        '''
+        return self._queryForJson(self.V2_API_URL+'stories/corenlp',
+            {'stories_id': story_id_list} )
 
     def sentenceList(self, solr_query, solr_filter='', start=0, rows=1000, sort=SORT_PUBLISH_DATE_ASC):
         '''
@@ -158,15 +184,17 @@ class MediaCloud(object):
         return self._queryForJson(self.V2_API_URL+'sentences/count', params)
 
     def wordCount(self, solr_query, solr_filter='', languages='en', num_words=500, sample_size=1000, include_stopwords=False, include_stats=False):
-        return self._queryForJson(self.V2_API_URL+'wc/list',
-                {'q': solr_query,
-                 'fq': solr_filter,
-                 'l': languages,
-                 'num_words': num_words,
-                 'sample_size': sample_size,
-                 'include_stopwords': 1 if include_stopwords is True else 0,
-                 'include_stats': 1 if include_stats is True else 0,
-                })
+        params = {
+            'q': solr_query,
+            'l': languages,
+            'num_words': num_words,
+            'sample_size': sample_size,
+            'include_stopwords': 1 if include_stopwords is True else 0,
+            'include_stats': 1 if include_stats is True else 0,
+        }
+        if len(solr_filter) > 0:
+            params['fq'] = solr_filter
+        return self._queryForJson(self.V2_API_URL+'wc/list', params)
 
     def tag(self, tags_id):
         '''
@@ -174,16 +202,20 @@ class MediaCloud(object):
         '''
         return self._queryForJson(self.V2_API_URL+'tags/single/'+str(tags_id))[0]
 
-    def tagList(self, tag_sets_id, last_tags_id=0, rows=20, public_only=False):
+    def tagList(self, tag_sets_id=None, last_tags_id=0, rows=20, public_only=False, name_like=None):
         '''
         List all the tags in one tag set
         '''
-        return self._queryForJson(self.V2_API_URL+'tags/list',
-            { 'tag_sets_id':tag_sets_id, 
-              'last_tags_id': last_tags_id, 
-              'rows':rows,
-              'public': 1 if public_only is True else 0
-            })
+        params = {
+            'last_tags_id': last_tags_id
+            , 'rows': rows
+            , 'public': 1 if public_only is True else 0
+        }
+        if tag_sets_id is not None:
+            params['tag_sets_id'] = tag_sets_id
+        if name_like is not None:
+            params['search'] = name_like
+        return self._queryForJson(self.V2_API_URL+'tags/list', params)
 
     def tagSet(self, tag_sets_id):
         '''
@@ -197,6 +229,60 @@ class MediaCloud(object):
         '''
         return self._queryForJson(self.V2_API_URL+'tag_sets/list',
             { 'last_tag_sets_id': last_tag_sets_id, 'rows':rows })
+
+    def controversy(self, controversies_id):
+        '''
+        Details about one controversy
+        '''
+        return self._queryForJson(self.V2_API_URL+'controversies/single/'+str(controversies_id))[0]
+
+    def controversyList(self, name=None):
+        '''
+        List all the controversies
+        '''
+        args = {}
+        if name is not None:
+            args['name'] = name
+        return self._queryForJson(self.V2_API_URL+'controversies/list',args)    
+
+    def controversyDump(self,controversy_dumps_id):
+        '''
+        Details about one controversy dump
+        '''
+        return self._queryForJson(self.V2_API_URL+'controversy_dumps/single/'+str(controversy_dumps_id))[0]
+
+    def controversyDumpList(self, controversies_id=None):
+        '''
+        List all the controversy dumps in a controversy
+        '''
+        args = {}
+        if controversies_id is not None:
+            args['controversies_id'] = controversies_id
+        return self._queryForJson(self.V2_API_URL+'controversy_dumps/list',args)    
+
+    def controversyDumpTimeSlice(self,controversy_dump_time_slices_id):
+        '''
+        Details about one controversy dump time slice
+        '''
+        return self._queryForJson(self.V2_API_URL+'controversy_dump_time_slices/single/'+str(controversy_dump_time_slices_id))[0]
+
+    def controversyDumpTimeSliceList(self, controversy_dumps_id=None, tags_id=None, period=None, 
+                                     start_date=None, end_date=None):
+        '''
+        List all the controversy dumps time slices in a controversy dump
+        '''
+        args = {}
+        if controversy_dumps_id is not None:
+            args['controversy_dumps_id'] = controversy_dumps_id
+        if tags_id is not None:
+            args['tags_id'] = tags_id
+        if period is not None:
+            args['period'] = period
+        if start_date is not None:
+            args['start_date'] = start_date
+        if end_date is not None:
+            args['end_date'] = end_date
+        return self._queryForJson(self.V2_API_URL+'controversy_dumps/list',args)    
 
     def _queryForJson(self, url, params={}, http_method='GET'):
         '''
@@ -234,7 +320,11 @@ class MediaCloud(object):
         if r.status_code is not 200:
             self._logger.error('Bad HTTP response to '+r.url +' : '+str(r.status_code)  + ' ' +  str( r.reason) )
             self._logger.error('\t' + r.content )
-            raise Exception('Error - got a HTTP status code of '+str(r.status_code) + ' with the message "' +  str( r.reason) + '"')
+            msg = 'Error - got a HTTP status code of %s with the message "%s"' % (
+                str(r.status_code)
+                , str(r.reason)
+            )
+            raise mediacloud.error.MCException(msg, r.status_code)
         return r
 
 # used when calling WriteableMediaCloud.tagStories
