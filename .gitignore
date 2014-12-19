@@ -3,3 +3,5 @@ mc-client.config
 *.log
 build
 mediacloud.egg-info
+dist/
+
