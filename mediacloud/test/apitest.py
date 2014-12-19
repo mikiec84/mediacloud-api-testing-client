@@ -433,7 +433,8 @@ class WriteableApiTest(unittest.TestCase):
         test_tag_id2 = '21' # jdoe@cyber.law.harvard.edu:test_tag2
         tag_set_name = "jdoe@cyber.law.harvard.edu"
         # grab some sentence_ids to test with
-        orig_story = self._mc.story(test_story_id)
+        orig_story = self._mc.story(test_story_id, sentences=True)
+        self.assertTrue( 'story_sentences' in orig_story )
         self.assertTrue( len(orig_story['story_sentences']) > 2 )
         sentence_ids = [ s['story_sentences_id'] for s in orig_story['story_sentences'][0:2] ]
         # add a tag
@@ -442,7 +443,7 @@ class WriteableApiTest(unittest.TestCase):
         response = self._mc.tagSentences(desired_tags)
         self.assertEqual(len(response),len(desired_tags))
         # and verify it worked
-        tagged_story = self._mc.story(test_story_id)
+        tagged_story = self._mc.story(test_story_id, sentences=True)
         tagged_sentences = [ s for s in orig_story['story_sentences'] if len(s['tags']) > 0 ]
 
         for s in tagged_sentences:
@@ -454,7 +455,7 @@ class WriteableApiTest(unittest.TestCase):
         response = self._mc.tagSentences(desired_tags)
         self.assertEqual(len(response),len(desired_tags))
         # and verify it worked
-        tagged_story = self._mc.story(test_story_id)
+        tagged_story = self._mc.story(test_story_id, sentences=True)
         tagged_sentences = [ s for s in tagged_story['story_sentences'] if len(s['tags']) > 0 ]
         for s in tagged_sentences:
             if s['story_sentences_id'] in sentence_ids:
@@ -466,7 +467,7 @@ class WriteableApiTest(unittest.TestCase):
         response = self._mc.tagSentences(desired_tags, clear_others=True)
         self.assertEqual(len(response),len(desired_tags))
         # and check it
-        tagged_story = self._mc.story(test_story_id)
+        tagged_story = self._mc.story(test_story_id, sentences=True)
         tagged_sentences = [ s for s in tagged_story['story_sentences'] if len(s['tags']) > 0 ]
         for s in tagged_sentences:
             if s['story_sentences_id'] in sentence_ids:
