@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import unittest, logging
+import sys
 
 from mediacloud.test.apitest import *
 from mediacloud.test.storagetest import *
@@ -9,7 +10,7 @@ import ipdb
 
 test_classes = [
 	ApiMediaTest,
-	ApiMediaSetTest, 
+	# ApiMediaSetTest, 
 	ApiFeedsTest, 
 	# ApiDashboardsTest, 
 	ApiTagsTest, 
@@ -22,7 +23,7 @@ test_classes = [
 	# ApiControversyDumpTest,
 	# ApiControversyDumpTimeSliceTest,
 	AuthTokenTest,
-	WriteableApiTest
+	# WriteableApiTest
 ]
 
 # set up all logging to DEBUG (cause we're running tests here!)
@@ -43,15 +44,7 @@ requests_logger.addHandler(log_handler)
 suites = [ unittest.TestLoader().loadTestsFromTestCase(test_class) for test_class in test_classes ]
 
 if __name__ == "__main__":
-	suite = unittest.TestSuite(suites)
-	result = unittest.TextTestRunner(verbosity=2).run(suite)
-
-	print result
-	print 'python result', result.wasSuccessful()
-
-	if result.wasSuccessful() == True:
-           exit(0)
-        else:
-           exit(-1)
-
-# SUITE THESE ALL UP for better outputs
+    suite = unittest.TestSuite(suites)
+    test_result = unittest.TextTestRunner(verbosity=2).run(suite)
+    if not test_result.wasSuccessful():
+        sys.exit(1)

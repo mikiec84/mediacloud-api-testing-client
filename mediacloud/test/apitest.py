@@ -1,15 +1,44 @@
 import unittest, ConfigParser, json, datetime, logging
 import mediacloud.api
 
+TEST_USER_EMAIL = "jdoe@cyber.law.harvard.edu"
+TEST_TAG_SET_ID = 1727
+GEO_TAG_SET_ID = 1011
+
 class ApiBaseTest(unittest.TestCase):
 
     QUERY = '+obama'
-    FILTER_QUERY = '+publish_date:[2013-01-01T00:00:00Z TO 2015-02-01T00:00:00Z]'
+    FILTER_QUERY = '+publish_date:[2013-01-01T00:00:00Z TO 2015-02-01T00:00:00Z] AND +media_sets_id:1'
+    SENTENCE_COUNT = 100
 
     def setUp(self):
         self._config = ConfigParser.ConfigParser()
         self._config.read('mc-client.config')
         self._mc = mediacloud.api.MediaCloud( self._config.get('api','key'))
+
+class AdminApiBaseTest(unittest.TestCase):
+
+    def setUp(self):
+        self._config = ConfigParser.ConfigParser()
+        self._config.read('mc-client.config')
+        self._mc = mediacloud.api.AdminMediaCloud( self._config.get('api','key') )
+
+class ApiAllFieldsOptionTest(ApiBaseTest):
+
+    def testAllFieldsOnMedia(self):
+        # do a regular query
+        media = self._mc.media(1751)
+        self.assertNotEqual(media, None)
+        self.assertEqual(media['media_id'],1751)
+        self.assertFalse('foreign_rss_links' in media)
+        self.assertTrue('url' in media)
+        # do an all fields regular query and verify extra fields are there
+        self._mc.setAllFields(True)
+        media = self._mc.media(1751)
+        self.assertNotEqual(media, None)
+        self.assertEqual(media['media_id'],1751)
+        self.assertTrue('foreign_rss_links' in media)
+        self.assertTrue('url' in media)
 
 class AuthTokenTest(ApiBaseTest):
 
@@ -35,6 +64,42 @@ class AuthTokenTest(ApiBaseTest):
             self.assertFalse(True)
         except:
             self.assertTrue(True)
+
+class PublishDateQueryTest(ApiBaseTest):
+
+    def testPublishDateQuery(self):
+        start_date = datetime.date(2014,06,02 )
+        end_date = datetime.date(2014,06,03 )
+        date_query_default = self._mc.publish_date_query( start_date, end_date )
+        self.assertEqual( date_query_default, "publish_date:[2014-06-02T00:00:00Z TO 2014-06-03T00:00:00Z}" )
+
+        date_query_inclusive_exclusive = self._mc.publish_date_query( start_date, end_date, start_date_inclusive=True, end_date_inclusive=False)
+        self.assertEqual( date_query_inclusive_exclusive, "publish_date:[2014-06-02T00:00:00Z TO 2014-06-03T00:00:00Z}") 
+
+        date_query_inclusive_inclusive = self._mc.publish_date_query( start_date, end_date, start_date_inclusive=True, end_date_inclusive=True)
+        self.assertEqual( date_query_inclusive_inclusive, "publish_date:[2014-06-02T00:00:00Z TO 2014-06-03T00:00:00Z]") 
+
+        date_query_exclusive_inclusive = self._mc.publish_date_query( start_date, end_date, start_date_inclusive=False, end_date_inclusive=True)
+        self.assertEqual( date_query_exclusive_inclusive, "publish_date:{2014-06-02T00:00:00Z TO 2014-06-03T00:00:00Z]") 
+
+        date_query_exclusive_exclusive = self._mc.publish_date_query( start_date, end_date, start_date_inclusive=False, end_date_inclusive=False)
+        self.assertEqual( date_query_exclusive_exclusive, "publish_date:{2014-06-02T00:00:00Z TO 2014-06-03T00:00:00Z}") 
+
+        self.assertTrue( self._mc.sentenceCount( date_query_default )[ 'count' ] > 0 )
+        self.assertTrue( self._mc.sentenceCount( date_query_inclusive_exclusive )[ 'count' ] > 0 )
+        self.assertTrue( self._mc.sentenceCount( date_query_inclusive_inclusive )[ 'count' ] > 0 )
+        self.assertTrue( self._mc.sentenceCount( date_query_exclusive_exclusive )[ 'count' ] > 0 )
+        self.assertTrue( self._mc.sentenceCount( date_query_exclusive_inclusive )[ 'count' ] > 0 )
+
+class ApiMediaHealthTest(ApiBaseTest):
+
+    def testMediaHealth(self):
+        mediaHealth = self._mc.mediaHealth(2)
+        self.assertEqual(mediaHealth['media_id'],'2')
+        self.assertEqual(mediaHealth['is_healthy'],1)
+        self.assertEqual(mediaHealth['coverage_gaps'],str(len(mediaHealth['coverage_gaps_list'])))
+        self.assertTrue('start_date' in mediaHealth)
+        self.assertTrue('end_date' in mediaHealth)
 
 class ApiMediaTest(ApiBaseTest):
 
@@ -65,6 +130,10 @@ class ApiMediaTest(ApiBaseTest):
         #self.assertEqual(first_list[0]['media_id'], second_list[0]['media_id'])
         longer_list = self._mc.mediaList(0,4)
         self.assertEqual(len(longer_list),4)
+
+    def testMediaListWithTagId(self):
+        matchingList = self._mc.mediaList(tags_id=16)
+        self.assertTrue(len(matchingList)>0)
 
 class ApiControversyTest(ApiBaseTest):
 
@@ -117,7 +186,7 @@ class ApiControversyDumpTimeSliceTest(ApiBaseTest):
         dump_time_slice_list = self._mc.controversyDumpTimeSliceList()
         self.assertTrue(len(dump_time_slice_list)>1)
         # make sure the filtering works
-        specific_dump_time_slice_list = self._mc.controversyDumpTimeSliceList(controversy_dumps_id=5)
+        specific_dump_time_slice_list = self._mc.controversyDumpTimeSliceList(controversy_dumps_id=16)
         self.assertTrue(len(specific_dump_time_slice_list)>1)
         self.assertTrue(len(specific_dump_time_slice_list)<=len(dump_time_slice_list))
 
@@ -156,6 +225,11 @@ class ApiTagsTest(ApiBaseTest):
         #public_list = self._mc.tagList(6, rows=200, public_only=True)
         #self.assertNotEqual( len(full_list), len(public_list))
 
+    def testTagListSearch(self):
+        # verify search works at all
+        collection_tags = self._mc.tagList(name_like="collection")
+        self.assertTrue(len(collection_tags)>0, "Got %d tags matching 'collection'" % len(collection_tags))
+
 class ApiTagSetsTest(ApiBaseTest):
 
     def testTagSet(self):
@@ -171,23 +245,6 @@ class ApiTagSetsTest(ApiBaseTest):
         self.assertEqual(first_list[19]['tag_sets_id'], second_list[0]['tag_sets_id'])
         longer_list = self._mc.tagSetList(0,50)
         self.assertEqual(len(longer_list),50)
-
-class ApiMediaSetTest(ApiBaseTest):
-
-    def testMediaSet(self):
-        media_set = self._mc.mediaSet(1)
-        self.assertEqual(media_set['media_sets_id'],1)
-        self.assertEqual(media_set['name'],'CC_sources')
-        self.assertTrue(len(media_set['media'])>0)
-
-    def testMediaSetList(self):
-        first_list = self._mc.mediaSetList()
-        self.assertEqual(len(first_list),7)
-        second_list = self._mc.mediaSetList(int(first_list[-1]['media_sets_id'])-1)
-        self.assertEqual(len(second_list),1)
-        self.assertEqual(first_list[-1]['media_sets_id'], second_list[0]['media_sets_id'])
-        #longer_list = self._mc.mediaSetList(0,200)
-        #self.assertEqual(len(longer_list),200)
 
 class ApiFeedsTest(ApiBaseTest):
 
@@ -206,37 +263,29 @@ class ApiFeedsTest(ApiBaseTest):
         #longer_list = self._mc.feedList(1,0,200)
         #self.assertEqual(len(longer_list),140)
 
-class ApiDashboardsTest(ApiBaseTest):
+class AdminApiStoriesTest(AdminApiBaseTest):
 
-    def testDashboard(self):
-        dashboard = self._mc.dashboard(2)
-        self.assertEqual(dashboard['dashboards_id'],2)
-        self.assertEqual(dashboard['name'],'Russia')
-        self.assertTrue(len(dashboard['media_sets'])>0)
+    def testStoryWithSentences(self):
+        story = self._mc.story(27456565, sentences=True)
+        self.assertEqual(int(story['stories_id']),27456565)
+        self.assertEqual(story['media_id'],1144)
+        self.assertTrue('story_sentences' in story)
+        self.assertFalse('story_text' in story)
+        self.assertFalse('is_fully_extracted' in story)
 
-    def testDashboardList(self):
-        first_list = self._mc.dashboardList()
-        self.assertTrue(len(first_list)>0)
-
-class ApiStoriesTest(ApiBaseTest):
-
-    def testStory(self):
-        story = self._mc.story(57)
+    def testStoryWithText(self):
+        story = self._mc.story(57, text=True)
+        self.assertEqual(int(story['stories_id']),57)
         self.assertEqual(story['media_id'],2)
         self.assertFalse('story_sentences' in story)
+        self.assertTrue('story_text' in story)
+        self.assertTrue('is_fully_extracted' in story)
 
     def testStoryList(self):
-        results = self._mc.storyList(self.QUERY, self.FILTER_QUERY)
+        results = self._mc.storyList(ApiBaseTest.QUERY, ApiBaseTest.FILTER_QUERY)
         self.assertNotEqual(len(results),0)
-
-    def testStoryPublic(self):
-        story = self._mc.storyPublic(57)
-        self.assertEqual(story['media_id'],2)
-        self.assertTrue('story_sentences' not in story)
-
-    def testStoryPublicList(self):
-        results = self._mc.storyList(self.QUERY, self.FILTER_QUERY)
-        self.assertNotEqual(len(results),0)
+        for story in results:
+            self.assertTrue('bitly_click_count' in story)
 
     def testStoryCoreNlpList(self):
         results = self._mc.storyCoreNlpList([261784668,261784669])
@@ -244,52 +293,74 @@ class ApiStoriesTest(ApiBaseTest):
         for story in results:
             self.assertFalse('story_sentences' in story)
             self.assertFalse('story_text' in story)
-            self.assertFalse('fully_extracted' in story)
+            self.assertFalse('is_fully_extracted' in story)
             self.assertTrue('corenlp' in story)
             self.assertTrue('stories_id' in story)
 
-'''
     def testStoryListDefaults(self):
-        results = self._mc.storyList(self.QUERY, self.FILTER_QUERY)
+        results = self._mc.storyList(ApiBaseTest.QUERY, ApiBaseTest.FILTER_QUERY, rows=10)
         for story in results:
-            self.assertTrue('story_sentences' in story)
-            self.assertTrue('story_text' in story)
-            self.assertTrue('fully_extracted' in story)
+            self.assertFalse('story_sentences' in story)
+            self.assertFalse('story_text' in story)
+            self.assertFalse('is_fully_extracted' in story)
             self.assertFalse('corenlp' in story)
 
     def testStoryListWithCoreNlp(self):
-        results = self._mc.storyList(self.QUERY, self.FILTER_QUERY, corenlp=True)
+        results = self._mc.storyList(ApiBaseTest.QUERY, ApiBaseTest.FILTER_QUERY, corenlp=True, rows=10)
         for story in results:
             self.assertFalse('story_sentences' in story)
-            self.assertTrue('story_text' in story)
-            self.assertTrue('fully_extracted' in story)
-            self.assertFalse('corenlp' in story)
+            self.assertFalse('story_text' in story)
+            self.assertFalse('is_fully_extracted' in story)
+            self.assertTrue('corenlp' in story)
 
-    def testStoryListWithoutSentences(self):
-        results = self._mc.storyList(self.QUERY, self.FILTER_QUERY, show_sentences=False)
-        for story in results:
-            self.assertFalse('story_sentences' in story)
-            self.assertTrue('story_text' in story)
-            self.assertTrue('fully_extracted' in story)
-            self.assertFalse('corenlp' in story)
-
-    def testStoryListWithoutText(self):
-        results = self._mc.storyList(self.QUERY, self.FILTER_QUERY, show_text=False)
+    def testStoryListWithSentences(self):
+        results = self._mc.storyList(ApiBaseTest.QUERY, ApiBaseTest.FILTER_QUERY, sentences=True, rows=10)
         for story in results:
             self.assertTrue('story_sentences' in story)
             self.assertFalse('story_text' in story)
-            self.assertFalse('fully_extracted' in story)
+            self.assertFalse('is_fully_extracted' in story)
             self.assertFalse('corenlp' in story)
-'''
 
-class ApiSentencesTest(ApiBaseTest):
+    def testStoryListWithText(self):
+        results = self._mc.storyList(ApiBaseTest.QUERY, ApiBaseTest.FILTER_QUERY, text=True, rows=10)
+        for story in results:
+            self.assertFalse('story_sentences' in story)
+            self.assertTrue('story_text' in story)
+            self.assertTrue('is_fully_extracted' in story)
+            self.assertFalse('corenlp' in story)
 
-    SENTENCE_COUNT = 1
+class ApiStoriesTest(ApiBaseTest):
+
+    def testStory(self):
+        story = self._mc.story(57)
+        self.assertEqual(int(story['stories_id']),57)
+        self.assertEqual(story['media_id'],2)
+        self.assertFalse('story_sentences' in story)
+        self.assertFalse('story_text' in story)
+        self.assertFalse('is_fully_extracted' in story)
+        self.assertTrue('bitly_click_count' in story)
+
+    def testStoryPublic(self):
+        story = self._mc.story(57)
+        self.assertEqual(int(story['stories_id']),57)
+        self.assertEqual(story['media_id'],2)
+        self.assertTrue('story_sentences' not in story)
+        self.assertTrue('language' in story)
+        self.assertTrue('title' in story)
+        self.assertTrue('bitly_click_count' in story)
+
+    def testStoryPublicList(self):
+        results = self._mc.storyList(self.QUERY, self.FILTER_QUERY)
+        self.assertNotEqual(len(results),0)
+        for story in results:
+            self.assertTrue('bitly_click_count' in story)
+
+class AdminApiSentencesTest(AdminApiBaseTest):
 
     def testSentenceListSortingAscending(self):
-        results = self._mc.sentenceList(self.QUERY,self.FILTER_QUERY,0,self.SENTENCE_COUNT,
+        results = self._mc.sentenceList(ApiBaseTest.QUERY,ApiBaseTest.FILTER_QUERY,0,ApiBaseTest.SENTENCE_COUNT,
             self._mc.SORT_PUBLISH_DATE_ASC)
-        self.assertEqual(len(results['response']['docs']), self.SENTENCE_COUNT)
+        self.assertEqual(len(results['response']['docs']), ApiBaseTest.SENTENCE_COUNT)
         last_date = None
         for sentence in results['response']['docs']:
             this_date = datetime.datetime.strptime(sentence['publish_date'],self._mc.SENTENCE_PUBLISH_DATE_FORMAT)
@@ -300,9 +371,9 @@ class ApiSentencesTest(ApiBaseTest):
             last_date = this_date
         
     def testSentenceListSortingDescending(self):
-        results = self._mc.sentenceList(self.QUERY,self.FILTER_QUERY,0,self.SENTENCE_COUNT,
+        results = self._mc.sentenceList(ApiBaseTest.QUERY,ApiBaseTest.FILTER_QUERY,0,ApiBaseTest.SENTENCE_COUNT,
             self._mc.SORT_PUBLISH_DATE_DESC)
-        self.assertEqual(len(results['response']['docs']), self.SENTENCE_COUNT)
+        self.assertEqual(len(results['response']['docs']), ApiBaseTest.SENTENCE_COUNT)
         last_date = None
         for sentence in results['response']['docs']:
             this_date = datetime.datetime.strptime(sentence['publish_date'],self._mc.SENTENCE_PUBLISH_DATE_FORMAT)
@@ -314,30 +385,30 @@ class ApiSentencesTest(ApiBaseTest):
 
     def testSentenceListSortingRadom(self):
         # we do random sort by telling we want the random sort, and then offsetting to a different start index
-        results1 = self._mc.sentenceList(self.QUERY,self.FILTER_QUERY,0,self.SENTENCE_COUNT,
+        results1 = self._mc.sentenceList(ApiBaseTest.QUERY,ApiBaseTest.FILTER_QUERY,0,ApiBaseTest.SENTENCE_COUNT,
             self._mc.SORT_RANDOM)
-        self.assertEqual(len(results1['response']['docs']), self.SENTENCE_COUNT)
-        results2 = self._mc.sentenceList(self.QUERY,self.FILTER_QUERY,self.SENTENCE_COUNT,self.SENTENCE_COUNT,
+        self.assertEqual(len(results1['response']['docs']), ApiBaseTest.SENTENCE_COUNT)
+        results2 = self._mc.sentenceList(ApiBaseTest.QUERY,ApiBaseTest.FILTER_QUERY,ApiBaseTest.SENTENCE_COUNT+3,ApiBaseTest.SENTENCE_COUNT,
             self._mc.SORT_RANDOM)
         #TODO reenable
-        #self.assertEqual(len(results2['response']['docs']), self.SENTENCE_COUNT)
-        # for idx in range(0,self.SENTENCE_COUNT):
+        # self.assertEqual(len(results2['response']['docs']), ApiBaseTest.SENTENCE_COUNT)
+        # for idx in range(0,ApiBaseTest.SENTENCE_COUNT):
         #     self.assertNotEqual(results1['response']['docs'][idx]['stories_id'],results2['response']['docs'][idx]['stories_id'],
         #         "Stories in two different random sets are the same :-(")
 
     def testSentenceList(self):
-        results = self._mc.sentenceList(self.QUERY, self.FILTER_QUERY)
+        results = self._mc.sentenceList(ApiBaseTest.QUERY, ApiBaseTest.FILTER_QUERY)
         self.assertEqual(int(results['responseHeader']['status']),0)
         self.assertEqual(int(results['response']['numFound']),1)
         self.assertEqual(len(results['response']['docs']), 1)
 
     def testSentenceListPaging(self):
         # test limiting rows returned
-        results = self._mc.sentenceList(self.QUERY, self.FILTER_QUERY,0,100)
+        results = self._mc.sentenceList(ApiBaseTest.QUERY, ApiBaseTest.FILTER_QUERY,0,100)
         self.assertEqual(int(results['response']['numFound']), 1)
         self.assertEqual(len(results['response']['docs']), 1)
         # test starting offset
-        results = self._mc.sentenceList(self.QUERY, self.FILTER_QUERY,6700)
+        results = self._mc.sentenceList(ApiBaseTest.QUERY, ApiBaseTest.FILTER_QUERY,6700)
         self.assertEqual(int(results['response']['numFound']), 1)
         self.assertEqual(len(results['response']['docs']), 0)
 
@@ -361,6 +432,30 @@ class ApiSentencesTest(ApiBaseTest):
         results = self._mc.sentenceCount('chinese','+media_id:1',True,'2014-01-01','2014-02-01',True)
         self.assertEqual(results['split']['gap'],'+1DAY')
         self.assertEqual(len(results['split']),34)
+
+    def testFieldCount(self):
+        # regular call for sentence counts
+        sentence_results = self._mc.sentenceFieldCount('obama','+media_id:1')
+        self.assertFalse('stats' in sentence_results)
+        self.assertFalse('counts' in sentence_results)
+        self.assertTrue(len(sentence_results)>0)
+        [self.assertTrue(tag['count']) for tag in sentence_results]
+        # regular call for story counts
+        story_results = self._mc.sentenceFieldCount('obama','+media_id:1',field='tags_id_stories')
+        self.assertFalse('stats' in story_results)
+        self.assertFalse('counts' in story_results)
+        self.assertTrue(len(story_results)>0)
+        [self.assertTrue(tag['count']) for tag in story_results]
+        # compare
+        self.assertTrue(len(story_results)!=len(sentence_results))
+        # with stats
+        results = self._mc.sentenceFieldCount('obama','+media_id:1',include_stats=True)
+        self.assertTrue('stats' in results)
+        self.assertTrue('counts' in results)
+        # filter by tag set
+        sentence_results = self._mc.sentenceFieldCount('obama','+media_id:1',tag_sets_id=GEO_TAG_SET_ID)
+        self.assertTrue(len(sentence_results)>0)
+        [self.assertEqual(tag['tag_sets_id'],GEO_TAG_SET_ID) for tag in sentence_results]
 
 class ApiWordCountTest(ApiBaseTest):
 
@@ -399,31 +494,62 @@ class ApiWordCountTest(ApiBaseTest):
         self.assertTrue( 'stats' in term_freq.keys() )
         self.assertTrue( 'words' in term_freq.keys() )
 
-class WriteableApiTest(unittest.TestCase):
+class AdminApiTaggingUpdateTest(AdminApiBaseTest):
 
-    def setUp(self):
-        self._config = ConfigParser.ConfigParser()
-        self._config.read('mc-client.config')
-        self._mc = mediacloud.api.WriteableMediaCloud( self._config.get('api','key') )
+    def testTagUpdate(self):
+        example_tag_id = 9172167
+        # grab the tag info
+        tag = self._mc.tag(example_tag_id)
+        # change the name, label and description
+        result = self._mc.updateTag(example_tag_id, 'modified tag', 'modified label', 'modified description')
+        modified_tag = self._mc.tag(example_tag_id)
+        self.assertEqual(modified_tag['tag'],'modified tag')
+        self.assertEqual(modified_tag['label'],'modified label')
+        self.assertEqual(modified_tag['description'],'modified description')
+        # set it back
+        result = self._mc.updateTag(example_tag_id, 'example tag', 'example label', 'This is an exampel tag used in api client test scripts')
+        modified_tag = self._mc.tag(example_tag_id)
+        self.assertEqual(modified_tag['tag'],'example tag')
+        self.assertEqual(modified_tag['label'],'example label')
+        self.assertEqual(modified_tag['description'],'This is an exampel tag used in api client test scripts')
+
+    def testTagSetUpdate(self):
+        example_tag_sets_id = TEST_TAG_SET_ID
+        # grab the tag info
+        tag_set = self._mc.tagSet(example_tag_sets_id)
+        # change the name, label and description
+        result = self._mc.updateTagSet(example_tag_sets_id, TEST_USER_EMAIL, 'modified label', 'modified description')
+        modified_tag = self._mc.tagSet(example_tag_sets_id)
+        self.assertEqual(modified_tag['name'],TEST_USER_EMAIL)
+        self.assertEqual(modified_tag['label'],'modified label')
+        self.assertEqual(modified_tag['description'],'modified description')
+        # set it back
+        result = self._mc.updateTagSet(example_tag_sets_id, TEST_USER_EMAIL, 'rahulbot', 'The tag set of Rahul!')
+        modified_tag = self._mc.tagSet(example_tag_sets_id)
+        self.assertEqual(modified_tag['name'], TEST_USER_EMAIL)
+        self.assertEqual(modified_tag['label'],'rahulbot')
+        self.assertEqual(modified_tag['description'],'The tag set of Rahul!')
+
+class AdminApiTaggingContentTest(AdminApiBaseTest):
 
     def testTagStories(self):
         test_story_id = 57
-        tag_set_name = "jdoe@cyber.law.harvard.edu"
+        tag_set_name = TEST_USER_EMAIL
         # tag a story with two things
         desired_tags = [ mediacloud.api.StoryTag(test_story_id, tag_set_name, 'test_tag1'),
                  mediacloud.api.StoryTag(test_story_id, tag_set_name, 'test_tag2') ] 
         response = self._mc.tagStories(desired_tags)
         self.assertEqual(len(response),len(desired_tags))
         # make sure it worked
-        story = self._mc.story(test_story_id)
+        story = self._mc.story(test_story_id,sentences=True)
         tags_on_story = [t for t in story['story_tags'] if t['tag_set']==tag_set_name]
         self.assertEqual(len(tags_on_story),len(desired_tags))
         # now remove one
-        desired_tags = [ mediacloud.api.StoryTag( test_story_id,'jdoe@cyber.law.harvard.edu','test_tag1') ]
+        desired_tags = [ mediacloud.api.StoryTag(test_story_id,TEST_USER_EMAIL,'test_tag1') ]
         response = self._mc.tagStories(desired_tags, clear_others=True)
         self.assertEqual(len(response),len(desired_tags))
         # and check it
-        story = self._mc.story(test_story_id)
+        story = self._mc.story(test_story_id,sentences=True)
         tags_on_story = [t for t in story['story_tags'] if t['tag_set']==tag_set_name]
         self.assertEqual(len(tags_on_story),len(desired_tags))
 
@@ -431,7 +557,7 @@ class WriteableApiTest(unittest.TestCase):
         test_story_id = 57
         test_tag_id1 = '20' # jdoe@cyber.law.harvard.edu:test_tag1
         test_tag_id2 = '21' # jdoe@cyber.law.harvard.edu:test_tag2
-        tag_set_name = "jdoe@cyber.law.harvard.edu"
+        tag_set_name = TEST_USER_EMAIL
         # grab some sentence_ids to test with
         orig_story = self._mc.story(test_story_id, sentences=True)
         self.assertTrue( 'story_sentences' in orig_story )
@@ -443,7 +569,7 @@ class WriteableApiTest(unittest.TestCase):
         response = self._mc.tagSentences(desired_tags)
         self.assertEqual(len(response),len(desired_tags))
         # and verify it worked
-        tagged_story = self._mc.story(test_story_id, sentences=True)
+        tagged_story = self._mc.story(test_story_id,sentences=True)
         tagged_sentences = [ s for s in orig_story['story_sentences'] if len(s['tags']) > 0 ]
 
         for s in tagged_sentences:
@@ -455,7 +581,7 @@ class WriteableApiTest(unittest.TestCase):
         response = self._mc.tagSentences(desired_tags)
         self.assertEqual(len(response),len(desired_tags))
         # and verify it worked
-        tagged_story = self._mc.story(test_story_id, sentences=True)
+        tagged_story = self._mc.story(test_story_id,sentences=True)
         tagged_sentences = [ s for s in tagged_story['story_sentences'] if len(s['tags']) > 0 ]
         for s in tagged_sentences:
             if s['story_sentences_id'] in sentence_ids:
@@ -467,7 +593,7 @@ class WriteableApiTest(unittest.TestCase):
         response = self._mc.tagSentences(desired_tags, clear_others=True)
         self.assertEqual(len(response),len(desired_tags))
         # and check it
-        tagged_story = self._mc.story(test_story_id, sentences=True)
+        tagged_story = self._mc.story(test_story_id,sentences=True)
         tagged_sentences = [ s for s in tagged_story['story_sentences'] if len(s['tags']) > 0 ]
         for s in tagged_sentences:
             if s['story_sentences_id'] in sentence_ids:
