@@ -1,2 +1,5 @@
 requests
 pymongo
+
+# For generating README.rst out of README.md
+setuptools-markdown

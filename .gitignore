@@ -5,4 +5,5 @@ build
 mediacloud.egg-info
 venv
 dist
-README.rst
+.eggs/
+
