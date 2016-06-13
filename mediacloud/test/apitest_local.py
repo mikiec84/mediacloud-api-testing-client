@@ -4,7 +4,7 @@ import mediacloud.api
 class ApiBaseTest(unittest.TestCase):
 
     QUERY = '( mars OR robot )'
-    FILTER_QUERY = '+publish_date:[2013-01-01T00:00:00Z TO 2013-02-01T00:00:00Z] AND +media_sets_id:1'
+    FILTER_QUERY = '+publish_date:[2013-01-01T00:00:00Z TO 2013-02-01T00:00:00Z]'
 
     def setUp(self):
         self._config = ConfigParser.ConfigParser()
@@ -44,7 +44,6 @@ class ApiMediaTest(ApiBaseTest):
         self.assertEqual(media['media_id'],1)
         self.assertEqual(media['name'],'New York Times')
         self.assertTrue(len(media['media_source_tags'])>0)
-        self.assertTrue(len(media['media_sets'])>0)
 
     def testMediaListWithName(self):
         matchingList = self._mc.mediaList(name_like='new york times')
@@ -112,30 +111,13 @@ class ApiTagSetsTest(ApiBaseTest):
         longer_list = self._mc.tagSetList(0,50)
         self.assertEqual(len(longer_list),50)
 
-class ApiMediaSetTest(ApiBaseTest):
-
-    def testMediaSet(self):
-        media_set = self._mc.mediaSet(1)
-        self.assertEqual(media_set['media_sets_id'],1)
-        self.assertEqual(media_set['name'],'Top 25 Mainstream Media')
-        #self.assertTrue(len(media_set['media'])>0) # blocked by Media Cloud bug #7511 
-
-    def testMediaSetList(self):
-        first_list = self._mc.mediaSetList()
-        self.assertEqual(len(first_list),20)
-        second_list = self._mc.mediaSetList(int(first_list[19]['media_sets_id'])-1)
-        self.assertEqual(len(second_list),20)
-        self.assertEqual(first_list[19]['media_sets_id'], second_list[0]['media_sets_id'])
-        longer_list = self._mc.mediaSetList(0,200)
-        self.assertEqual(len(longer_list),200)
-
 class ApiFeedsTest(ApiBaseTest):
 
     def testFeed(self):
-        media_set = self._mc.feed(1)
-        self.assertEqual(media_set['feeds_id'],1)
-        self.assertEqual(media_set['name'],'Bits')
-        self.assertEqual(media_set['media_id'],1)
+        feed = self._mc.feed(1)
+        self.assertEqual(feed['feeds_id'],1)
+        self.assertEqual(feed['name'],'Bits')
+        self.assertEqual(feed['media_id'],1)
 
     def testFeedList(self):
         first_list = self._mc.feedList(1)
@@ -154,7 +136,7 @@ class ApiStoriesTest(ApiBaseTest):
         self.assertTrue(len(story['story_sentences'])>0)
 
     def testStoryList(self):
-        results = self._mc.storyList('+obama', '+publish_date:[2013-01-01T00:00:00Z TO 2013-02-01T00:00:00Z] AND +media_sets_id:1')
+        results = self._mc.storyList('+obama', '+publish_date:[2013-01-01T00:00:00Z TO 2013-02-01T00:00:00Z]')
         self.assertNotEqual(len(results),0)
 
     def testStoryPublic(self):
@@ -163,7 +145,7 @@ class ApiStoriesTest(ApiBaseTest):
         self.assertTrue('story_sentences' not in story)
 
     def testStoryPublicList(self):
-        results = self._mc.storyList('+obama', '+publish_date:[2013-01-01T00:00:00Z TO 2013-02-01T00:00:00Z] AND +media_sets_id:1')
+        results = self._mc.storyList('+obama', '+publish_date:[2013-01-01T00:00:00Z TO 2013-02-01T00:00:00Z]')
         self.assertNotEqual(len(results),0)
 
 class ApiSentencesTest(ApiBaseTest):

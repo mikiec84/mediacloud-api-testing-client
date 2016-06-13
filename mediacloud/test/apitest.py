@@ -8,7 +8,7 @@ GEO_TAG_SET_ID = 1011
 class ApiBaseTest(unittest.TestCase):
 
     QUERY = '+obama'
-    FILTER_QUERY = '+publish_date:[2013-01-01T00:00:00Z TO 2015-02-01T00:00:00Z] AND +media_sets_id:1'
+    FILTER_QUERY = '+publish_date:[2013-01-01T00:00:00Z TO 2015-02-01T00:00:00Z]'
     SENTENCE_COUNT = 100
 
     def setUp(self):
@@ -109,7 +109,6 @@ class ApiMediaTest(ApiBaseTest):
         self.assertEqual(media['media_id'],1)
         self.assertEqual(media['name'],'Wikinews, the free news source')
         #self.assertTrue(len(media['media_source_tags'])>0)
-        #self.assertTrue(len(media['media_sets'])>0)
 
     def testMediaListWithName(self):
         matchingList = self._mc.mediaList(name_like='Wikinoticias')
@@ -249,10 +248,10 @@ class ApiTagSetsTest(ApiBaseTest):
 class ApiFeedsTest(ApiBaseTest):
 
     def testFeed(self):
-        media_set = self._mc.feed(1)
-        self.assertEqual(media_set['feeds_id'],1)
-        self.assertEqual(media_set['name'],'English Wikinews Atom feed.')
-        self.assertEqual(media_set['media_id'],1)
+        feed = self._mc.feed(1)
+        self.assertEqual(feed['feeds_id'],1)
+        self.assertEqual(feed['name'],'English Wikinews Atom feed.')
+        self.assertEqual(feed['media_id'],1)
 
     def testFeedList(self):
         first_list = self._mc.feedList(1)
